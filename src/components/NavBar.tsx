@@ -1,3 +1,5 @@
+"use client";
+
 import { getSessionUser } from "@/lib/auth0";
 import NavBarUI from "./NavBarUI";
 
