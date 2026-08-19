@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { getAdmin, getSessionUser } from "@/lib/auth0";
+import { CartButton } from "./cart-button";
 
 export async function Navbar() {
   const user = await getSessionUser();
@@ -36,6 +37,10 @@ export async function Navbar() {
         </Link>
 
         <nav className="flex items-center gap-2">
+          <CartButton />
+
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
           {user ? (
             <>
               {admin ? (
@@ -44,15 +49,14 @@ export async function Navbar() {
                 </Button>
               ) : null}
 
-              <Separator orientation="vertical" className="hidden h-6 sm:block" />
+              <Separator
+                orientation="vertical"
+                className="hidden h-6 sm:block"
+              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-2 px-2"
-                  >
+                  <Button variant="ghost" size="sm" className="gap-2 px-2">
                     <Avatar size="sm">
                       {user.picture ? (
                         <AvatarImage src={user.picture} alt={displayName} />
@@ -68,14 +72,16 @@ export async function Navbar() {
                   <DropdownMenuLabel className="font-normal">
                     <p className="text-sm font-medium">{displayName}</p>
                     {user.email ? (
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.email}
+                      </p>
                     ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator /> 
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a href="/auth/logout">Log out</a>
                   </DropdownMenuItem>

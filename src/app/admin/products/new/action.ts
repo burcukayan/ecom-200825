@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
 
 export type CreateProductFormValues = {
   name: string;
@@ -97,9 +98,31 @@ export async function createProduct(
 
   let productId: string;
   try {
-    const result = await createProductRecord(parsed.data, imageUrls);
-    productId = result.id;
-  } catch {
+    const stripeProduct = await stripe.products.create({
+      name: parsed.data.name,
+      description: parsed.data.description,
+      images: imageUrls,
+    });
+
+    const stripePrice = await stripe.prices.create({
+      product: stripeProduct.id,
+      unit_amount: Math.round(parseFloat(values.price) * 100),
+      currency: values.currency.toLowerCase(),
+    });
+
+    
+    const record = await prisma.product.create({
+      data: {
+        ...parsed.data,
+        imageUrls,
+        stripePriceId: stripePrice.id, 
+        stripeProductId: stripeProduct.id,
+      } as any,
+    });
+    
+    productId = record.id;
+  } catch (error) {
+    console.error("Stripe or DB Error:", error);
     return {
       message: "Could not create the product. Please try again.",
       values,
@@ -188,7 +211,7 @@ export async function updateProductAction(
     await prisma.product.update({
       where: { id: productId },
       data: {
-        ...parsed.data as any,
+        ...(parsed.data as any),
         ...(imageUrls && { imageUrls }),
       },
     });
