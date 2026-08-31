@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { auth0 } from "@/lib/auth0";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2),
@@ -9,13 +10,31 @@ const updateProfileSchema = z.object({
   address: z.string().optional(),
 });
 
-export async function updateProfileAction(
-  formData: z.infer<typeof updateProfileSchema>,
-) {
+export async function updateProfileAction(prevState: any, formData: FormData) {
   try {
-    const validatedData = updateProfileSchema.parse(formData);
+    const session = await auth0.getSession();
+    if (!session || !session.user) {
+      return {
+        success: false,
+        message: "Unauthorized: You must be logged in.",
+      };
+    }
 
-    console.log("Data that was processed on the server:", validatedData);
+    const rawData = {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      address: formData.get("address"),
+    };
+
+    const validatedData = updateProfileSchema.parse(rawData);
+
+    console.log(
+      "Data processed on the server for user:",
+      session.user.sub,
+      validatedData,
+    );
+
+    // TODO: Connect Auth0 Management API (patch-users-by-id) and MongoDB here later.
 
     revalidatePath("/profile");
 
