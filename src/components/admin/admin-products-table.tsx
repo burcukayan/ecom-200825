@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { deleteProductAction } from "@/app/admin/products/new/action";
-
+import { deleteProductAction } from "@/app/admin/products/action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,11 +82,11 @@ export async function AdminProductsTable() {
                       Edit
                     </Link>
                   </Button>
-                  <form action={deleteProductAction.bind(null, product.id)}>
-                    <Button type="submit" variant="destructive" size="sm">
+                  <Button asChild variant="destructive" size="sm">
+                    <Link href={`/admin/products/${product.id}/delete`}>
                       Delete
-                    </Button>
-                  </form>
+                    </Link>
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>

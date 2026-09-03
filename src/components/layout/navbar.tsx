@@ -39,20 +39,23 @@ export async function Navbar() {
           {user ? (
             <>
               {admin ? (
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/admin/products">Admin</Link>
-                </Button>
+                <>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/admin/products">Admin</Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm">
+                    F<Link href="/admin/products/new">New Product</Link>
+                  </Button>
+                </>
               ) : null}
-
-              <Separator orientation="vertical" className="hidden h-6 sm:block" />
+              <Separator
+                orientation="vertical"
+                className="hidden h-6 sm:block"
+              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-2 px-2"
-                  >
+                  <Button variant="ghost" size="sm" className="gap-2 px-2">
                     <Avatar size="sm">
                       {user.picture ? (
                         <AvatarImage src={user.picture} alt={displayName} />
@@ -68,14 +71,16 @@ export async function Navbar() {
                   <DropdownMenuLabel className="font-normal">
                     <p className="text-sm font-medium">{displayName}</p>
                     {user.email ? (
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.email}
+                      </p>
                     ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator /> 
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a href="/auth/logout">Log out</a>
                   </DropdownMenuItem>

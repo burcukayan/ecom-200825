@@ -3,7 +3,6 @@
 import { useActionState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,19 +11,40 @@ import { cn } from "@/lib/utils";
 import { ACCEPTED_IMAGE_ACCEPT_ATTR, MAX_IMAGE_MB } from "@/lib/product-images";
 import { EU_CURRENCY_OPTIONS } from "@/types/currency";
 import { PRODUCT_CATEGORY_OPTIONS } from "@/types/product";
-import { updateProductAction, type UpdateProductState } from "@/app/admin/products/new/action";
+import {
+  updateProductAction,
+  type UpdateProductState,
+} from "@/app/admin/products/action";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
-function fieldError(fieldErrors: any, field: string) {
-  return fieldErrors?.[field];
+export type Product = {
+  id: string;
+  name: string;
+  description: string;
+  priceCents: number;
+  currency: string;
+  category: string;
+  stock: number;
+  isActive: boolean;
+  imageUrls?: string[];
+};
+
+function fieldError(fieldErrors?: Record<string, string>, field?: string) {
+  return field ? fieldErrors?.[field] : undefined;
 }
 
-export function EditProductForm({ product }: { product: any }) {
-  const updateProductWithId = updateProductAction.bind(null, product.id);
-
+export function EditProductForm({ product }: { product: Product }) {
   const [state, formAction, isPending] = useActionState<
     UpdateProductState | null,
     FormData
-  >(updateProductWithId, null);
+  >(updateProductAction, null);
 
   const values = state?.values ?? {
     name: product.name,
@@ -40,6 +60,7 @@ export function EditProductForm({ product }: { product: any }) {
 
   return (
     <form action={formAction} className="space-y-8">
+      <input type="hidden" name="id" value={product.id} />
       {state?.message ? (
         <div
           role="alert"
@@ -83,22 +104,18 @@ export function EditProductForm({ product }: { product: any }) {
             label="Category"
             error={fieldError(fieldErrors, "category")}
           >
-            <select
-              id="category"
-              name="category"
-              defaultValue={values.category}
-              className={cn(
-                "h-9 w-full rounded-lg border border-input bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                fieldError(fieldErrors, "category") && "border-destructive",
-              )}
-              required
-            >
-              {PRODUCT_CATEGORY_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Select name="category" defaultValue={values.category} required>
+              <SelectTrigger id="category" className="w-full">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_CATEGORY_OPTIONS.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
       </section>
@@ -131,19 +148,18 @@ export function EditProductForm({ product }: { product: any }) {
             label="Currency"
             error={fieldError(fieldErrors, "currency")}
           >
-            <select
-              id="currency"
-              name="currency"
-              defaultValue={values.currency}
-              className="h-9 w-full rounded-lg border border-input bg-input/30 px-3 text-sm"
-              required
-            >
-              {EU_CURRENCY_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Select name="currency" defaultValue={values.currency} required>
+              <SelectTrigger id="currency" className="w-full">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent>
+                {EU_CURRENCY_OPTIONS.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
 
           <FormField
@@ -207,15 +223,19 @@ export function EditProductForm({ product }: { product: any }) {
       </section>
 
       <section className="space-y-4">
-        <label className="flex items-center gap-3 text-sm">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="isActive"
             name="isActive"
             defaultChecked={values.isActive}
-            className="size-4 rounded border border-input accent-primary"
           />
-          <span>Product is active and visible in the store</span>
-        </label>
+          <Label
+            htmlFor="isActive"
+            className="text-sm font-normal cursor-pointer"
+          >
+            Product is active and visible in the store
+          </Label>
+        </div>
       </section>
 
       <div className="flex items-center gap-3 border-t border-border pt-6">

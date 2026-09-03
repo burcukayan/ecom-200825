@@ -16,7 +16,7 @@ import {
   CreateProductFieldErrors,
   CreateProductFormValues,
   CreateProductState,
-} from "./action";
+} from "../action";
 
 const initialValues: CreateProductFormValues = {
   name: "",
