@@ -4,26 +4,24 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { type Auth0SessionUser } from "@/lib/auth0";
 import { updateProfileAction } from "@/lib/action";
-import { useState } from "react";
+import { useActionState, useTransition } from "react";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(2, { message: "Name could be at least two characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
+  email: z
+    .string()
+    .trim()
+    .email({ message: "Please enter a valid email address." }),
   address: z
     .string()
+    .trim()
     .min(10, { message: "Address must be at least 10 characters long." })
     .optional(),
 });
@@ -33,88 +31,62 @@ export default function ProfileForm({
 }: {
   user: Auth0SessionUser | null;
 }) {
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const [state, formAction] = useActionState(updateProfileAction, null);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    mode: "onBlur",
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
-      address: "",
+      address: "", // TODO: Connect to MongoDB later to persist address on reload
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsPending(true);
-    setStatusMessage(null);
-
-    const result = await updateProfileAction(values);
-
-    setIsPending(false);
-    if (result.message) {
-      setStatusMessage(result.message);
-    }
+    startTransition(async () => {
+      const formData = new FormData();
+      Object.entries(values).forEach(([key, value]) => {
+        if (value) formData.append(key, value);
+      });
+      await formAction(formData);
+    });
   }
 
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {statusMessage && (
-          <div className="p-4 text-sm rounded-md bg-muted text-foreground font-medium border">
-            {statusMessage}
-          </div>
-        )}
+  {
+    state?.message && (
+      <div className="p-4 text-sm rounded-md bg-muted text-foreground font-medium border">
+        {state.message}
+      </div>
+    );
+  }
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name Surname</FormLabel>
-              <FormControl>
-                <Input placeholder="Your Name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <Label htmlFor="name">Name</Label>
+    <Input id="name" {...form.register("name")} disabled={isPending} />
+    {form.formState.errors.name && (
+      <p className="text-sm text-red-600">
+        {form.formState.errors.name.message}
+      </p>
+    )}
+    <Label htmlFor="email">Email</Label>
+    <Input id="email" {...form.register("email")} disabled={isPending} />
+    {form.formState.errors.email && (
+      <p className="text-sm text-red-600">
+        {form.formState.errors.email.message}
+      </p>
+    )}
+    <Label htmlFor="address">Address</Label>
+    <Input id="address" {...form.register("address")} disabled={isPending} />
+    {form.formState.errors.address && (
+      <p className="text-sm text-red-600">
+        {form.formState.errors.address.message}
+      </p>
+    )}
 
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address</FormLabel>
-              <FormControl>
-                <Input placeholder="example@mail.com" {...field} disabled />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Delivery Address</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Enter your delivery address..."
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          {isPending ? "Submitting..." : "Save Changes"}
-        </Button>
-      </form>
-    </Form>
-  );
+    <Button type="submit" disabled={isPending}>
+      {isPending ? "Updating..." : "Update Profile"}
+    </Button>
+  </form>;
 }
