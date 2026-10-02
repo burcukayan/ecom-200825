@@ -7,3 +7,4 @@ bin/
 
 build
 build/Release
+/prisma/src/generated/prisma

@@ -1,14 +1,13 @@
-import type { Product as PrismaProduct } from "@prisma/client";
-
-import { parseStorefrontFiltersFromSearchParams } from "@/lib/validation";
-import type { CreateProductData } from "@/lib/validation/product";
-import { prisma } from "@/lib/prisma";
-import { Currency, isCurrency } from "@/types/currency";
+import { cache } from "react";
+import type { Prisma, Product as PrismaProduct } from "@prisma/client";
 import {
-  isProductCategory,
-  type ProductCategory,
-  type ProductSort,
-} from "@/types/product";
+  parsePageParam,
+  parseSearchParam,
+  parseStorefrontFiltersFromSearchParams,
+} from "@/lib/validation";
+import { prisma } from "@/lib/prisma";
+import { Currency } from "@/types/currency";
+import { ProductCategory, ProductSort } from "@/types/product";
 
 export type Product = {
   id: string;
@@ -20,100 +19,117 @@ export type Product = {
   stock: number;
   imageUrls: string[];
   isActive: boolean;
-  createdAt: Date;  
+  createdAt: Date;
   updatedAt: Date;
-  stripePriceId?: string; 
+  stripePriceId: string | null;
+  stripeProductId: string | null;
 };
 
 export type GetStorefrontProductsFilters = {
   category?: ProductCategory | "all";
   sort?: ProductSort;
+  page?: number;
+  query?: string;
 };
 
-function toProduct(record: PrismaProduct): Product {
-  if (!isCurrency(record.currency)) {
-    throw new Error(`Unsupported currency: ${record.currency}`);
-  }
-  if (!isProductCategory(record.category)) {
-    throw new Error(`Unsupported category: ${record.category}`);
-  }
+export type StorefrontProductsPage = {
+  products: Product[];
+  total: number;
+  page: number;
+  totalPages: number;
+  pageSize: number;
+};
 
+export const STOREFRONT_PAGE_SIZE = 9;
+
+export const isObjectId = (id: string) => /^[a-f\d]{24}$/i.test(id);
+
+function toProduct(record: PrismaProduct): Product {
   return {
-    id: record.id,
-    name: record.name,
-    description: record.description,
-    priceCents: record.priceCents,
-    currency: record.currency,
-    category: record.category,
-    stock: record.stock,
-    imageUrls: record.imageUrls,
-    isActive: record.isActive,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    stripePriceId: (record as any).stripePriceId || null,
+    ...record,
+    currency: record.currency as Currency,
+    category: record.category as ProductCategory,
   };
 }
 
-export async function getStorefrontProducts(
-  _filters: GetStorefrontProductsFilters = {},
-): Promise<Product[]> {
-  try {
-    const records = await prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-    return records.map(toProduct);
-  } catch (error) {
-    console.error("An error occured when fetching all products from DB", error);
-    return [];
-  }
+const ORDER_BY: Record<ProductSort, Prisma.ProductOrderByWithRelationInput> = {
+  [ProductSort.NAME_ASC]: { name: "asc" },
+  [ProductSort.NAME_DESC]: { name: "desc" },
+  [ProductSort.PRICE_ASC]: { priceCents: "asc" },
+  [ProductSort.PRICE_DESC]: { priceCents: "desc" },
+};
+
+export async function getStorefrontProducts({
+  category = "all",
+  sort = ProductSort.NAME_ASC,
+  page = 1,
+  query = "",
+}: GetStorefrontProductsFilters = {}): Promise<StorefrontProductsPage> {
+  const where: Prisma.ProductWhereInput = {
+    isActive: true,
+    ...(category !== "all" && { category }),
+    ...(query && {
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
+      ],
+    }),
+  };
+
+  const total = await prisma.product.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / STOREFRONT_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  const records = await prisma.product.findMany({
+    where,
+    orderBy: [ORDER_BY[sort], { id: "asc" }],
+    skip: (safePage - 1) * STOREFRONT_PAGE_SIZE,
+    take: STOREFRONT_PAGE_SIZE,
+  });
+
+  return {
+    products: records.map(toProduct),
+    total,
+    page: safePage,
+    totalPages,
+    pageSize: STOREFRONT_PAGE_SIZE,
+  };
 }
 
 export async function getAllProducts(): Promise<Product[]> {
-  try {
-    const records = await prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-
-    return records.map(toProduct);
-  } catch (error) {
-    console.error("An error occured when fetching all products from DB", error);
-    return [];
-  }
+  const records = await prisma.product.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+  return records.map(toProduct);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
-  try {
-    const record = await prisma.product.findUnique({
-      where: { id },
-    });
-    
-    if (!record) return null;
-    
-    return toProduct(record); 
-  } catch (error) {
-    console.error(`An error occurred when fetching product ${id}`, error);
-    return null;
-  }
+  if (!isObjectId(id)) return null;
+  const record = await prisma.product.findUnique({ where: { id } });
+  return record ? toProduct(record) : null;
 }
 
-export async function createProduct(
-  data: CreateProductData,
-  imageUrls: string[],
-): Promise<Product> {
-  const record = await prisma.product.create({
-    data: {
-      ...data,
-      imageUrls,
-    },
-  });
-  return toProduct(record);
-}
+export const getStorefrontProductById = cache(
+  async (id: string): Promise<Product | null> => {
+    const product = await getProductById(id);
+    return product?.isActive ? product : null;
+  },
+);
 
 export function parseStorefrontFilters(
   searchParams: Record<string, string | string[] | undefined>,
-): { categoryValue: ProductCategory | "all"; sortValue: ProductSort } {
+): {
+  categoryValue: ProductCategory | "all";
+  sortValue: ProductSort;
+  pageValue: number;
+  queryValue: string;
+} {
   const { category, sort } =
     parseStorefrontFiltersFromSearchParams(searchParams);
-
-  return { categoryValue: category, sortValue: sort };
+  return {
+    categoryValue: category,
+    sortValue: sort,
+    pageValue: parsePageParam(searchParams.page),
+    queryValue: parseSearchParam(searchParams.q),
+  };
 }

@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   LayoutGrid,
   PackagePlus,
   ShoppingBag,
   Users,
 } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 const adminLinks = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: LayoutGrid },
   { href: "/admin/products/new", label: "Create product", icon: PackagePlus },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },

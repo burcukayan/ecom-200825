@@ -1,7 +1,5 @@
-"use client";
-
 import Image from "next/image";
-
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -19,10 +17,10 @@ type ProductCardProps = {
   name: string;
   description: string;
   priceCents: number;
-  currency: string;
+  currency: Currency;
   category: ProductCategory;
+  stock: number;
   imageUrl?: string;
-  stripePriceId?: string | null;
 };
 
 export function ProductCard({
@@ -32,14 +30,15 @@ export function ProductCard({
   priceCents,
   currency,
   category,
+  stock,
   imageUrl,
-  stripePriceId,
 }: ProductCardProps) {
-  const priceLabel = formatPrice(priceCents, currency as Currency);
-
   return (
-    <Card className="overflow-hidden flex flex-col">
-      <div className="relative aspect-4/3 bg-muted">
+    <Card className="flex flex-col overflow-hidden">
+      <Link
+        href={`/products/${id}`}
+        className="relative block aspect-4/3 bg-muted"
+      >
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -53,31 +52,34 @@ export function ProductCard({
             No image
           </div>
         )}
-      </div>
-      <CardHeader className="gap-2 flex-1">
+      </Link>
+      <CardHeader className="flex-1 gap-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1 text-base">{name}</CardTitle>
+          <CardTitle className="line-clamp-1 text-base">
+            <Link href={`/products/${id}`} className="hover:underline">
+              {name}
+            </Link>
+          </CardTitle>
           <Badge variant="secondary">{formatCategoryLabel(category)}</Badge>
         </div>
         <CardDescription className="line-clamp-2">
           {description}
         </CardDescription>
       </CardHeader>
-      <CardFooter className="border-t border-border pt-4 flex items-center justify-between gap-4">
-        <p className="text-lg font-semibold text-foreground">{priceLabel}</p>
-
-        <div className="shrink-0">
-          <AddToCartButton
-            product={{
-              id: id,
-              name: name,
-              price: priceCents,
-              currency: currency,
-              imageUrl: imageUrl || "",
-              stripePriceId: stripePriceId || "",
-            }}
-          />
-        </div>
+      <CardFooter className="flex items-center justify-between gap-4 border-t border-border pt-4">
+        <p className="text-lg font-semibold text-foreground">
+          {formatPrice(priceCents, currency)}
+        </p>
+        <AddToCartButton
+          disabled={stock <= 0}
+          product={{
+            id,
+            name,
+            price: priceCents,
+            currency,
+            imageUrl: imageUrl ?? "",
+          }}
+        />
       </CardFooter>
     </Card>
   );

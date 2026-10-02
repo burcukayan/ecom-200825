@@ -1,7 +1,5 @@
 import { z } from "zod";
-
 import { ProductSort } from "@/types/product";
-
 import { productCategorySchema } from "./product";
 
 export const productSortSchema = z.nativeEnum(ProductSort);
@@ -38,4 +36,20 @@ export function parseStorefrontFiltersFromSearchParams(
   }
 
   return { category: "all", sort: ProductSort.NAME_ASC };
+}
+
+export function parsePageParam(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const page = Number(raw);
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
+const SEARCH_QUERY_MAX_LENGTH = 100;
+
+export function parseSearchParam(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return (raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, SEARCH_QUERY_MAX_LENGTH);
 }

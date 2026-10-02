@@ -1,93 +1,63 @@
 "use client";
 
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { type Auth0SessionUser } from "@/lib/auth0";
+import { Button } from "@/components/ui/button";
 import { updateProfileAction } from "@/lib/action";
-import { useState } from "react";
+import { profileSchema, type ProfileValues } from "@/lib/profile-schema";
 
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(2, { message: "Name could be at least two characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  address: z
-    .string()
-    .min(10, { message: "Address must be at least 10 characters long." })
-    .optional(),
-});
-
-export default function ProfileForm({
-  user,
+export function ProfileForm({
+  email,
+  defaultValues,
 }: {
-  user: Auth0SessionUser | null;
+  email: string;
+  defaultValues: ProfileValues;
 }) {
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: user?.name || "",
-      email: user?.email || "",
-      address: "",
-    },
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues,
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsPending(true);
-    setStatusMessage(null);
-
-    const result = await updateProfileAction(values);
-
-    setIsPending(false);
-    if (result.message) {
-      setStatusMessage(result.message);
-    }
-  }
+  const onSubmit = async (values: ProfileValues) => {
+    setResult(null);
+    setResult(await updateProfileAction(values));
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {statusMessage && (
-          <div className="p-4 text-sm rounded-md bg-muted text-foreground font-medium border">
-            {statusMessage}
-          </div>
-        )}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormItem>
+          <FormLabel>Email</FormLabel>
+          <Input type="email" value={email} readOnly disabled />
+          <FormDescription>
+            Email is managed by your login provider.
+          </FormDescription>
+        </FormItem>
 
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name Surname</FormLabel>
+              <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="Your Name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address</FormLabel>
-              <FormControl>
-                <Input placeholder="example@mail.com" {...field} disabled />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -99,21 +69,27 @@ export default function ProfileForm({
           name="address"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Delivery Address</FormLabel>
+              <FormLabel>Address</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="Enter your delivery address..."
-                  {...field}
-                />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          {isPending ? "Submitting..." : "Save Changes"}
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? "Saving..." : "Save"}
         </Button>
+
+        {result ? (
+          <p
+            role="status"
+            className={result.success ? "text-green-600" : "text-destructive"}
+          >
+            {result.message}
+          </p>
+        ) : null}
       </form>
     </Form>
   );

@@ -1,5 +1,4 @@
 import Link from "next/link";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,14 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { getAdmin, getSessionUser } from "@/lib/auth0";
+import { getSessionUser, isAdmin } from "@/lib/auth0";
+import { getDbUser } from "@/lib/backend";
 import { CartButton } from "./cart-button";
 
 export async function Navbar() {
-  const user = await getSessionUser();
-  const admin = await getAdmin();
+  const sessionUser = await getSessionUser();
+  const dbUser = sessionUser ? await getDbUser() : null;
+  const admin = isAdmin(sessionUser);
 
-  const displayName = user?.name ?? user?.email ?? "User";
+  const displayName =
+    dbUser?.name ?? sessionUser?.name ?? sessionUser?.email ?? "User";
+  const email = dbUser?.email ?? sessionUser?.email;
+  const picture = dbUser?.picture ?? sessionUser?.picture;
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -38,28 +42,22 @@ export async function Navbar() {
 
         <nav className="flex items-center gap-2">
           <CartButton />
+          <Separator orientation="vertical" className="mx-1 h-6" />
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
-
-          {user ? (
+          {sessionUser ? (
             <>
               {admin ? (
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/admin/products">Admin</Link>
+                  <Link href="/admin">Admin</Link>
                 </Button>
               ) : null}
-
-              <Separator
-                orientation="vertical"
-                className="hidden h-6 sm:block"
-              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2 px-2">
                     <Avatar size="sm">
-                      {user.picture ? (
-                        <AvatarImage src={user.picture} alt={displayName} />
+                      {picture ? (
+                        <AvatarImage src={picture} alt={displayName} />
                       ) : null}
                       <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
@@ -71,15 +69,16 @@ export async function Navbar() {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel className="font-normal">
                     <p className="text-sm font-medium">{displayName}</p>
-                    {user.email ? (
-                      <p className="text-xs text-muted-foreground">
-                        {user.email}
-                      </p>
+                    {email ? (
+                      <p className="text-xs text-muted-foreground">{email}</p>
                     ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile">Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/orders">My Orders</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

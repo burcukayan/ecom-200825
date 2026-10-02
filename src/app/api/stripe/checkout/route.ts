@@ -1,44 +1,76 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
+import { z } from "zod";
+import { getSessionUser } from "@/lib/auth0";
+import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 
+const checkoutSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid product id"),
+        quantity: z.number().int().min(1).max(20),
+      }),
+    )
+    .min(1, "Cart is empty")
+    .max(50),
+});
+
+const APP_BASE_URL = process.env.APP_BASE_URL ?? "http://localhost:3000";
+
 export async function POST(req: Request) {
-  try {
-    const headersList = await headers();
-    const origin = headersList.get("origin") || "http://localhost:3000";
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please log in to checkout." }, { status: 401 });
+  }
 
-    const body = await req.json();
-    const items = body.items;
+  const parsed = checkoutSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid cart" }, { status: 400 });
+  }
+  const { items } = parsed.data;
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
+  const products = await prisma.product.findMany({
+    where: { id: { in: items.map((i) => i.productId) }, isActive: true },
+  });
+  const productById = new Map(products.map((p) => [p.id, p]));
+
+  const lineItems: { price: string; quantity: number }[] = [];
+  const currencies = new Set<string>();
+
+  for (const item of items) {
+    const product = productById.get(item.productId);
+    if (!product || !product.stripePriceId) {
+      return NextResponse.json({ error: "A product in your cart is no longer available." }, { status: 409 });
     }
-
-    const line_items = items.map((item: any) => ({
-      price: item.stripePriceId,
-      quantity: item.quantity,
-    }));
-
-    const session = await stripe.checkout.sessions.create({
-      line_items: line_items,
-      mode: "payment",
-      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/cart`,
-    });
-
-    if (session.url) {
-      return NextResponse.json({ url: session.url });
-    } else {
+    if (product.stock < item.quantity) {
       return NextResponse.json(
-        { error: "Session URL not found" },
-        { status: 500 },
+        { error: `Only ${product.stock} left in stock for "${product.name}".` },
+        { status: 409 },
       );
     }
-  } catch (err: any) {
+    currencies.add(product.currency);
+    lineItems.push({ price: product.stripePriceId, quantity: item.quantity });
+  }
+
+  if (currencies.size > 1) {
+    return NextResponse.json({ error: "All items must use the same currency." }, { status: 400 });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: lineItems,
+      client_reference_id: user.sub,
+      customer_email: user.email,
+      shipping_address_collection: { allowed_countries: ["TR", "DE", "NL", "FR", "GB", "US"] },
+      success_url: `${APP_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_BASE_URL}/cart`,
+    });
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
     console.error("Stripe Checkout Error:", err);
-    return NextResponse.json(
-      { error: err.message },
-      { status: err.statusCode || 500 },
-    );
+    return NextResponse.json({ error: "Could not start checkout. Please try again." }, { status: 500 });
   }
 }

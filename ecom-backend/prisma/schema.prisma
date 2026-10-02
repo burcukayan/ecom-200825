@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Currency {
+  EUR
+  USD
+  TRY
+}
+
+enum Category {
+  ELECTRONICS
+  CLOTHING
+  HOME
+  SPORTS
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model Product {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String
+  priceCents      Int // smallest currency unit: 1999 = 19.99
+  currency        Currency    @default(EUR)
+  category        Category
+  stock           Int         @default(0)
+  imageUrls       String[] // URLs returned by Vercel Blob
+  isActive        Boolean     @default(true)
+  stripeProductId String?
+  stripePriceId   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  orderItems      OrderItem[]
+
+  @@index([isActive, category])
+  @@map("products")
+}
+
+model User {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  auth0Id       String   @unique
+  email         String
+  emailVerified Boolean  @default(false)
+  name          String?
+  picture       String?
+  address       String?
+  role          Role     @default(CUSTOMER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]
+
+  @@map("users")
+}
+
+model Order {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String      @db.ObjectId
+  user            User        @relation(fields: [userId], references: [id])
+  stripeSessionId String      @unique // idempotency: one order per Checkout Session
+  status          OrderStatus @default(PENDING)
+  totalCents      Int
+  currency        Currency
+  email           String?
+  shippingAddress String?
+  stripeRefundId  String? 
+  cancelledAt     DateTime?
+  shippedAt       DateTime?
+  completedAt     DateTime?
+  carrier         String? 
+  trackingNumber  String? 
+  orderItems      OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  quantity   Int
+  priceCents Int // price at the moment of purchase
+  currency   Currency
+  name       String // product name snapshot
+  orderId    String   @db.ObjectId
+  order      Order    @relation(fields: [orderId], references: [id])
+  productId  String   @db.ObjectId
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@map("order-items")
+}
+
+model TestOrder {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("test-orders")
+}

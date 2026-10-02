@@ -1,6 +1,4 @@
-dist
-.eslintrc.js
-.prettierrc.js
-coverage
-build
 node_modules
+dist
+coverage
+prisma/generated

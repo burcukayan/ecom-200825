@@ -54,3 +54,4 @@ export const PRODUCT_SORT_OPTIONS: {
 export function isProductSort(value: string): value is ProductSort {
   return Object.values(ProductSort).includes(value as ProductSort);
 }
+

@@ -1,41 +1,42 @@
 import { Request, Response } from 'express'
+import Stripe from 'stripe'
 import { endpointSecret, stripe } from '../../../common/stripe'
+import checkoutService from '../../../services/checkout/service'
+import orderService from '../../../services/orders/service'
+import logger from '../../../common/logger'
 
 async function receiveUpdates(req: Request, res: Response) {
-  console.log('Reached stripe webhooks receive updates function')
-  let event = req.body
+  const signature = req.headers['stripe-signature']
 
-  if (endpointSecret) {
-    const signature = req.headers['stripe-signature'] as string
-    try {
-      event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret)
-    } catch (err: any) {
-      console.log(`⚠️  Webhook signature verification failed.`, err.message)
-      return res.sendStatus(400)
+  if (typeof signature !== 'string') {
+    return res.status(400).send('Missing stripe-signature header')
+  }
+
+  let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret)
+  } catch (err) {
+    logger.warn({ err }, 'Webhook signature verification failed')
+    return res.sendStatus(400)
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded':
+        await checkoutService.handleSuccessfulCheckout(event.data.object.id)
+        break
+      case 'charge.refunded':
+        await orderService.handleChargeRefunded(event.data.object)
+        break
+      default:
+        logger.debug({ type: event.type }, 'Unhandled Stripe event')
     }
+    res.json({ received: true })
+  } catch (err) {
+    logger.error({ err, eventId: event.id }, 'Webhook handler failed')
+    res.sendStatus(500)
   }
-
-  switch (event.type) {
-    case 'checkout.session.completed':
-      const session = event.data.object
-      console.log(`✅ Checkout is successful! Customer completed payment. (Session: ${session.id})`)
-      break
-    case 'product.created':
-    case 'product.updated':
-      const product = event.data.object
-      console.log(`📦 Admin Event: Product created or updated. (Product: ${product.id})`)
-      break
-    case 'product.deleted':
-      const deletedProduct = event.data.object
-      console.log(`🗑️ Admin Event: Product deleted/archived from Stripe. (Product: ${deletedProduct.id})`)
-      break
-    default:
-      console.log(`Unhandled event type ${event.type}.`)
-  }
-
-  res.send()
 }
 
-export default {
-  receiveUpdates,
-}
+export default { receiveUpdates }

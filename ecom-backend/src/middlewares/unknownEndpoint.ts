@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 
-const unknownEndpoint = (req: Request, res: Response) => {
-  res.status(404).send({ error: 'unknown endpoint' })
+const unknownEndpoint = (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'unknown endpoint' })
 }
 
 export default unknownEndpoint

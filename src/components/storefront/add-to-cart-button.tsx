@@ -1,8 +1,8 @@
 "use client";
 
-import { useCart } from "@/context/cart-context";
 import { useState } from "react";
-import { Button } from "@/components/ui/button"; 
+import { useCart } from "@/context/cart-context";
+import { Button } from "@/components/ui/button";
 
 type AddToCartButtonProps = {
   product: {
@@ -11,28 +11,34 @@ type AddToCartButtonProps = {
     price: number;
     currency: string;
     imageUrl: string;
-    stripePriceId: string;
   };
+  disabled?: boolean;
 };
 
-export function AddToCartButton({ product }: AddToCartButtonProps) {
+export function AddToCartButton({ product, disabled }: AddToCartButtonProps) {
   const { addToCart } = useCart();
   const [isAdded, setIsAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAddToCart = () => {
-    addToCart(product);
+    const result = addToCart(product);
+    if (!result.ok) {
+      setError(result.reason);
+      return;
+    }
+    setError(null);
     setIsAdded(true);
-    
     setTimeout(() => setIsAdded(false), 2000);
   };
 
   return (
-    <Button
-      onClick={handleAddToCart}
-      disabled={isAdded}
-      className={`w-full ${isAdded ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
-    >
-      {isAdded ? "✓ Added to Cart" : "Add to Cart"}
-    </Button>
+    <div className="flex flex-col items-end gap-1">
+      <Button onClick={handleAddToCart} disabled={disabled || isAdded}>
+        {disabled ? "Out of stock" : isAdded ? "Added to cart" : "Add to cart"}
+      </Button>
+      {error ? (
+        <p className="max-w-48 text-right text-xs text-destructive">{error}</p>
+      ) : null}
+    </div>
   );
 }

@@ -1,8 +1,9 @@
 import pino from 'pino'
+import { env } from './env'
 
 const logger = pino({
-  name: process.env.APP_ID || 'app',
-  level: process.env.LOG_LEVEL || 'info',
+  name: env.APP_ID,
+  level: env.LOG_LEVEL,
 })
 
 export default logger

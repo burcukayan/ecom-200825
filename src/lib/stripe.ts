@@ -1,13 +1,8 @@
-import 'server-only'
+import "server-only";
+import Stripe from "stripe";
 
-import Stripe from 'stripe'
-
-const stripeKey = () => {
-  if (process.env.STRIPE_SECRET_KEY) {
-    return process.env.STRIPE_SECRET_KEY
-  } else {
-    throw Error('Missing Stripe secret key');
-  }
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("Missing STRIPE_SECRET_KEY");
 }
 
-export const stripe = new Stripe(stripeKey())
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);

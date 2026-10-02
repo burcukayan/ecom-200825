@@ -1,12 +1,5 @@
-import stripeLibrary from 'stripe'
-import './env';
+import Stripe from 'stripe'
+import { env } from './env'
 
-
-
-export const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-const stripeApiKey = process.env.STRIPE_SECRET_KEY;
-if (!endpointSecret || !stripeApiKey) {
-  console.warn('Stripe keys are missing, check the set up and try again.')
-}
-export const stripe = stripeLibrary(stripeApiKey);
-
+export const stripe = new Stripe(env.STRIPE_SECRET_KEY)
+export const endpointSecret = env.STRIPE_WEBHOOK_SECRET

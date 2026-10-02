@@ -2,72 +2,92 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/types/currency";
-import { useState } from "react";
+import { Currency, formatPrice } from "@/types/currency";
 
 export default function CartPage() {
   const {
     cart,
+    isHydrated,
     removeFromCart,
     increaseQuantity,
     decreaseQuantity,
     totalItems,
     totalPrice,
+    currency,
   } = useCart();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCheckout = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: cart }),
+        body: JSON.stringify({
+          items: cart.map(({ id, quantity }) => ({ productId: id, quantity })),
+        }),
       });
 
-      const data = await response.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Something went wrong with checkout.");
+      if (response.status === 401) {
+        window.location.href = "/auth/login?returnTo=/cart";
+        return;
       }
-    } catch (error) {
-      console.error("Checkout failed:", error);
+
+      const data = await response.json();
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setError(data.error ?? "Something went wrong with checkout.");
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (cart.length === 0) {
+  if (!isHydrated) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <h1 className="text-2xl font-bold">Your cart is empty</h1>
-        <p className="text-muted-foreground">
-          Looks like you haven't added anything yet.
-        </p>
-        <Link href="/">
-          <Button>Start Shopping</Button>
-        </Link>
+      <div className="mx-auto max-w-4xl px-4 py-8 text-muted-foreground">
+        Loading cart...
       </div>
     );
   }
 
+  if (cart.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-bold">Your cart is empty</h1>
+        <p className="text-muted-foreground">
+          Looks like you haven&apos;t added anything yet.
+        </p>
+        <Button asChild>
+          <Link href="/">Start shopping</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const cartCurrency = (currency ?? Currency.EUR) as Currency;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground mb-8">
-        Shopping Cart
+      <h1 className="mb-8 text-3xl font-bold tracking-tight text-foreground">
+        Shopping cart
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-4">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="space-y-4 lg:col-span-8">
           {cart.map((item) => (
             <div
               key={item.id}
-              className="flex gap-4 border rounded-lg p-4 bg-card"
+              className="flex gap-4 rounded-lg border bg-card p-4"
             >
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
                 {item.imageUrl ? (
@@ -75,10 +95,11 @@ export default function CartPage() {
                     src={item.imageUrl}
                     alt={item.name}
                     fill
+                    sizes="96px"
                     className="object-cover"
                   />
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                  <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
                     No image
                   </div>
                 )}
@@ -86,22 +107,23 @@ export default function CartPage() {
 
               <div className="flex flex-1 flex-col justify-between">
                 <div className="flex justify-between">
-                  <h3 className="font-medium text-lg">{item.name}</h3>
+                  <h3 className="text-lg font-medium">{item.name}</h3>
                   <p className="font-semibold">
                     {formatPrice(
                       item.price * item.quantity,
-                      item.currency as any,
+                      item.currency as Currency,
                     )}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 mt-4">
+                <div className="mt-4 flex items-center gap-4">
                   <div className="flex items-center rounded-md border">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 rounded-none"
                       onClick={() => decreaseQuantity(item.id)}
+                      aria-label={`Decrease quantity of ${item.name}`}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
@@ -113,6 +135,7 @@ export default function CartPage() {
                       size="icon"
                       className="h-8 w-8 rounded-none"
                       onClick={() => increaseQuantity(item.id)}
+                      aria-label={`Increase quantity of ${item.name}`}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -121,10 +144,10 @@ export default function CartPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    className="text-destructive"
                     onClick={() => removeFromCart(item.id)}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Remove
                   </Button>
                 </div>
@@ -134,30 +157,30 @@ export default function CartPage() {
         </div>
 
         <div className="lg:col-span-4">
-          <div className="rounded-lg border bg-card p-6 shadow-sm sticky top-24">
-            <h2 className="text-lg font-medium mb-4">Order Summary</h2>
-
-            <div className="flex justify-between mb-2 text-muted-foreground">
+          <div className="sticky top-24 rounded-lg border bg-card p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-medium">Order summary</h2>
+            <div className="mb-2 flex justify-between text-muted-foreground">
               <span>Items ({totalItems})</span>
-              <span>
-                {formatPrice(totalPrice, (cart[0]?.currency as any) || "USD")}
-              </span>
+              <span>{formatPrice(totalPrice, cartCurrency)}</span>
+            </div>
+            <div className="mb-6 mt-4 flex justify-between border-t pt-4 text-lg font-bold">
+              <span>Total</span>
+              <span>{formatPrice(totalPrice, cartCurrency)}</span>
             </div>
 
-            <div className="flex justify-between font-bold text-lg border-t pt-4 mt-4 mb-6">
-              <span>Total</span>
-              <span>
-                {formatPrice(totalPrice, (cart[0]?.currency as any) || "USD")}
-              </span>
-            </div>
+            {error ? (
+              <p role="alert" className="mb-4 text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
 
             <Button
-              className="w-full text-base font-semibold py-6"
+              className="w-full py-6 text-base font-semibold"
               size="lg"
               onClick={handleCheckout}
-              disabled={isLoading || cart.length === 0}
+              disabled={isLoading}
             >
-              {isLoading ? "Processing..." : "Proceed to Checkout"}
+              {isLoading ? "Processing..." : "Proceed to checkout"}
             </Button>
           </div>
         </div>

@@ -3,22 +3,30 @@
 import { useActionState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-
+import type { Product } from "@/lib/products";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { ACCEPTED_IMAGE_ACCEPT_ATTR, MAX_IMAGE_MB } from "@/lib/product-images";
+import { ACCEPTED_IMAGE_ACCEPT_ATTR } from "@/lib/product-images";
 import { EU_CURRENCY_OPTIONS } from "@/types/currency";
 import { PRODUCT_CATEGORY_OPTIONS } from "@/types/product";
-import { updateProductAction, type UpdateProductState } from "@/app/admin/products/new/action";
+import {
+  updateProductAction,
+  type UpdateProductState,
+} from "@/app/admin/products/new/action";
 
-function fieldError(fieldErrors: any, field: string) {
+type FieldErrors = NonNullable<UpdateProductState["fieldErrors"]>;
+
+function fieldError(
+  fieldErrors: FieldErrors | undefined,
+  field: keyof FieldErrors,
+) {
   return fieldErrors?.[field];
 }
 
-export function EditProductForm({ product }: { product: any }) {
+export function EditProductForm({ product }: { product: Product }) {
   const updateProductWithId = updateProductAction.bind(null, product.id);
 
   const [state, formAction, isPending] = useActionState<

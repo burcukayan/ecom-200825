@@ -1,25 +1,23 @@
 module.exports = {
-  env: {
-    es2021: true,
-    node: true,
-    jest: true,
-  },
   root: true,
+  env: { node: true, es2022: true },
   parser: '@typescript-eslint/parser',
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:jest/recommended',
-    'plugin:prettier/recommended', // Use Prettier recommended config
-  ],
-  plugins: ['@typescript-eslint', 'prettier'],
-  parserOptions: {
-    ecmaVersion: 2021,
-    sourceType: 'module',
-    project: './tsconfig.json',
-  },
+  parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+  plugins: ['@typescript-eslint'],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'],
   rules: {
-    '@typescript-eslint/no-unused-vars': 'error', 
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
   },
-  semi: 'always'
-};
+  overrides: [
+    {
+      files: ['tests/**/*.ts'],
+      env: { jest: true },
+      plugins: ['jest'],
+      extends: ['plugin:jest/recommended'],
+    },
+    {
+      files: ['*.js'],
+      rules: { '@typescript-eslint/no-var-requires': 'off' },
+    },
+  ],
+}
