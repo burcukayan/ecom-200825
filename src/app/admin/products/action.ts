@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { getAdmin } from "@/lib/auth0";
+import { requireAdmin } from "@/lib/auth0";
 
 export type CreateProductFormValues = {
   name: string;
@@ -61,10 +61,8 @@ export async function createProduct(
   _prevState: CreateProductState | null,
   formData: FormData,
 ): Promise<CreateProductState | null> {
-  const admin = await getAdmin();
-  if (!admin) {
-    return { message: "Unauthorized: Only admins can create products." };
-  }
+  await requireAdmin();
+
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -123,16 +121,15 @@ export async function createProduct(
       currency: values.currency.toLowerCase(),
     });
 
-    
     const record = await prisma.product.create({
       data: {
         ...parsed.data,
         imageUrls,
-        stripePriceId: stripePrice.id, 
+        stripePriceId: stripePrice.id,
         stripeProductId: stripeProduct.id,
       } as any,
     });
-    
+
     productId = record.id;
   } catch (error) {
     console.error("Stripe or DB Error:", error);
@@ -148,10 +145,8 @@ export async function createProduct(
 }
 
 export async function deleteProductAction(productId: string) {
-  const admin = await getAdmin();
-  if (!admin) {
-    throw new Error("Unauthorized: Only admins can delete products.");
-  }
+  await requireAdmin();
+
   const product = await prisma.product.findUnique({
     where: { id: productId },
   });
@@ -173,10 +168,8 @@ export async function deleteProductAction(productId: string) {
 export type UpdateProductState = CreateProductState;
 
 export async function updateProductAction(prevState: any, formData: FormData) {
-  const admin = await getAdmin();
-  if (!admin) {
-    return { message: "Unauthorized: Only admins can update products." };
-  }
+  await requireAdmin();
+
   const productId = formData.get("id") as string;
   const values = parseFormValues(formData);
 

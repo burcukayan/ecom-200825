@@ -1,10 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth0";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 
 export async function deleteProduct(id: string) {
+  await requireAdmin();
+
   const product = await prisma.product.findUnique({
     where: { id },
   });
