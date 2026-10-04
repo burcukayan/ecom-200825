@@ -44,11 +44,15 @@ export async function Navbar() {
           {user ? (
             <>
               {admin ? (
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/admin/products">Admin</Link>
-                </Button>
+                <>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/admin/products">Admin</Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/admin/products/new">New Product</Link>
+                  </Button>
+                </>
               ) : null}
-
               <Separator
                 orientation="vertical"
                 className="hidden h-6 sm:block"

@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { getAdmin } from "@/lib/auth0";
 
 export type CreateProductFormValues = {
   name: string;
@@ -60,6 +61,10 @@ export async function createProduct(
   _prevState: CreateProductState | null,
   formData: FormData,
 ): Promise<CreateProductState | null> {
+  const admin = await getAdmin();
+  if (!admin) {
+    return { message: "Unauthorized: Only admins can create products." };
+  }
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -85,16 +90,24 @@ export async function createProduct(
     };
   }
 
-  const imageUrls = await Promise.all(
-    imagesParsed.data.map(async (imageFile) => {
-      const blob = await put(imageFile.name, imageFile, {
-        access: "public",
-        addRandomSuffix: true,
-      });
-
-      return blob.url;
-    }),
-  );
+  let imageUrls: string[];
+  try {
+    imageUrls = await Promise.all(
+      imagesParsed.data.map(async (imageFile) => {
+        const blob = await put(imageFile.name, imageFile, {
+          access: "public",
+          addRandomSuffix: true,
+        });
+        return blob.url;
+      }),
+    );
+  } catch (error) {
+    console.error("Image upload failed:", error);
+    return {
+      message: "Image upload failed. The files might be too large.",
+      values,
+    };
+  }
 
   let productId: string;
   try {
@@ -135,6 +148,10 @@ export async function createProduct(
 }
 
 export async function deleteProductAction(productId: string) {
+  const admin = await getAdmin();
+  if (!admin) {
+    throw new Error("Unauthorized: Only admins can delete products.");
+  }
   const product = await prisma.product.findUnique({
     where: { id: productId },
   });
@@ -155,11 +172,12 @@ export async function deleteProductAction(productId: string) {
 
 export type UpdateProductState = CreateProductState;
 
-export async function updateProductAction(
-  productId: string,
-  _prevState: UpdateProductState | null,
-  formData: FormData,
-): Promise<UpdateProductState | null> {
+export async function updateProductAction(prevState: any, formData: FormData) {
+  const admin = await getAdmin();
+  if (!admin) {
+    return { message: "Unauthorized: Only admins can update products." };
+  }
+  const productId = formData.get("id") as string;
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -196,15 +214,23 @@ export async function updateProductAction(
       await del(existingProduct.imageUrls);
     }
 
-    imageUrls = await Promise.all(
-      imagesParsed.data.map(async (imageFile) => {
-        const blob = await put(imageFile.name, imageFile, {
-          access: "public",
-          addRandomSuffix: true,
-        });
-        return blob.url;
-      }),
-    );
+    try {
+      imageUrls = await Promise.all(
+        imagesParsed.data.map(async (imageFile) => {
+          const blob = await put(imageFile.name, imageFile, {
+            access: "public",
+            addRandomSuffix: true,
+          });
+          return blob.url;
+        }),
+      );
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      return {
+        message: "Failed to upload new images. The files might be too large.",
+        values,
+      };
+    }
   }
 
   try {

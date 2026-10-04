@@ -81,7 +81,6 @@ export async function AdminProductsTable() {
                       Edit
                     </Link>
                   </Button>
-
                   <Button asChild variant="destructive" size="sm">
                     <Link href={`/admin/products/${product.id}/delete`}>
                       Delete
