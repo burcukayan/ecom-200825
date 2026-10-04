@@ -144,25 +144,52 @@ export async function createProduct(
   redirect(`/admin/products/new?created=${productId}`);
 }
 
-export async function deleteProductAction(productId: string) {
+export type DeleteProductResult = { ok: true } | { ok: false; message: string };
+
+export async function deleteProductAction(
+  productId: string,
+): Promise<DeleteProductResult> {
   await requireAdmin();
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-  });
+  const product = await prisma.product
+    .findUnique({ where: { id: productId } })
+    .catch(() => null);
 
-  if (!product) return;
-
-  if (product.imageUrls && product.imageUrls.length > 0) {
-    await del(product.imageUrls);
+  if (!product) {
+    return { ok: false, message: "Product not found." };
   }
 
-  await prisma.product.delete({
-    where: { id: productId },
-  });
+  try {
+    if (product.stripeProductId) {
+      await stripe.products.update(product.stripeProductId, { active: false });
+    }
+  } catch (error) {
+    console.error("Stripe archive failed:", error);
+    return {
+      ok: false,
+      message: "Could not archive the product in Stripe. Please try again.",
+    };
+  }
+
+  try {
+    await prisma.product.delete({ where: { id: productId } });
+  } catch (error) {
+    console.error("Product delete failed:", error);
+    return {
+      ok: false,
+      message: "Could not delete the product. Please try again.",
+    };
+  }
+
+  if (product.imageUrls.length > 0) {
+    await del(product.imageUrls).catch((error) =>
+      console.error("Image cleanup failed:", error),
+    );
+  }
 
   revalidatePath("/admin/products");
   revalidatePath("/");
+  return { ok: true };
 }
 
 export type UpdateProductState = CreateProductState;
