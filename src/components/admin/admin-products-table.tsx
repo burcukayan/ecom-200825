@@ -13,6 +13,7 @@ import {
 import { getAllProducts } from "@/lib/products";
 import { Currency, formatPrice } from "@/types/currency";
 import { formatCategoryLabel, type ProductCategory } from "@/types/product";
+import { DeleteProductButton } from "@/components/admin/delete-product-button";
 
 export async function AdminProductsTable() {
   const products = await getAllProducts();
@@ -81,12 +82,10 @@ export async function AdminProductsTable() {
                       Edit
                     </Link>
                   </Button>
-
-                  <Button asChild variant="destructive" size="sm">
-                    <Link href={`/admin/products/${product.id}/delete`}>
-                      Delete
-                    </Link>
-                  </Button>
+                  <DeleteProductButton
+                    productId={product.id}
+                    productName={product.name}
+                  />
                 </div>
               </TableCell>
             </TableRow>

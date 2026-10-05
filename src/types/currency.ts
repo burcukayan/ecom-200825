@@ -1,6 +1,7 @@
 /** ISO 4217 codes — supported shop currencies */
 export enum Currency {
   EUR = "EUR",
+  USD = "USD",
   GBP = "GBP",
   TRY = "TRY",
 }
@@ -9,6 +10,7 @@ export const EU_CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
   { value: Currency.EUR, label: "Euro (€)" },
   { value: Currency.GBP, label: "British pound (£)" },
   { value: Currency.TRY, label: "Turkish lira (₺)" },
+  { value: Currency.USD, label: "US dollar ($)" },
 ];
 
 export function isCurrency(value: string): value is Currency {

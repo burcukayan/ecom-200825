@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { requireAdmin } from "@/lib/auth0";
 
 export type CreateProductFormValues = {
   name: string;
@@ -60,6 +61,8 @@ export async function createProduct(
   _prevState: CreateProductState | null,
   formData: FormData,
 ): Promise<CreateProductState | null> {
+  await requireAdmin();
+
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -85,16 +88,24 @@ export async function createProduct(
     };
   }
 
-  const imageUrls = await Promise.all(
-    imagesParsed.data.map(async (imageFile) => {
-      const blob = await put(imageFile.name, imageFile, {
-        access: "public",
-        addRandomSuffix: true,
-      });
-
-      return blob.url;
-    }),
-  );
+  let imageUrls: string[];
+  try {
+    imageUrls = await Promise.all(
+      imagesParsed.data.map(async (imageFile) => {
+        const blob = await put(imageFile.name, imageFile, {
+          access: "public",
+          addRandomSuffix: true,
+        });
+        return blob.url;
+      }),
+    );
+  } catch (error) {
+    console.error("Image upload failed:", error);
+    return {
+      message: "Image upload failed. The files might be too large.",
+      values,
+    };
+  }
 
   let productId: string;
   try {
@@ -110,16 +121,15 @@ export async function createProduct(
       currency: values.currency.toLowerCase(),
     });
 
-    
     const record = await prisma.product.create({
       data: {
         ...parsed.data,
         imageUrls,
-        stripePriceId: stripePrice.id, 
+        stripePriceId: stripePrice.id,
         stripeProductId: stripeProduct.id,
       } as any,
     });
-    
+
     productId = record.id;
   } catch (error) {
     console.error("Stripe or DB Error:", error);
@@ -134,32 +144,60 @@ export async function createProduct(
   redirect(`/admin/products/new?created=${productId}`);
 }
 
-export async function deleteProductAction(productId: string) {
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-  });
+export type DeleteProductResult = { ok: true } | { ok: false; message: string };
 
-  if (!product) return;
+export async function deleteProductAction(
+  productId: string,
+): Promise<DeleteProductResult> {
+  await requireAdmin();
 
-  if (product.imageUrls && product.imageUrls.length > 0) {
-    await del(product.imageUrls);
+  const product = await prisma.product
+    .findUnique({ where: { id: productId } })
+    .catch(() => null);
+
+  if (!product) {
+    return { ok: false, message: "Product not found." };
   }
 
-  await prisma.product.delete({
-    where: { id: productId },
-  });
+  try {
+    if (product.stripeProductId) {
+      await stripe.products.update(product.stripeProductId, { active: false });
+    }
+  } catch (error) {
+    console.error("Stripe archive failed:", error);
+    return {
+      ok: false,
+      message: "Could not archive the product in Stripe. Please try again.",
+    };
+  }
+
+  try {
+    await prisma.product.delete({ where: { id: productId } });
+  } catch (error) {
+    console.error("Product delete failed:", error);
+    return {
+      ok: false,
+      message: "Could not delete the product. Please try again.",
+    };
+  }
+
+  if (product.imageUrls.length > 0) {
+    await del(product.imageUrls).catch((error) =>
+      console.error("Image cleanup failed:", error),
+    );
+  }
 
   revalidatePath("/admin/products");
   revalidatePath("/");
+  return { ok: true };
 }
 
 export type UpdateProductState = CreateProductState;
 
-export async function updateProductAction(
-  productId: string,
-  _prevState: UpdateProductState | null,
-  formData: FormData,
-): Promise<UpdateProductState | null> {
+export async function updateProductAction(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const productId = formData.get("id") as string;
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -196,15 +234,23 @@ export async function updateProductAction(
       await del(existingProduct.imageUrls);
     }
 
-    imageUrls = await Promise.all(
-      imagesParsed.data.map(async (imageFile) => {
-        const blob = await put(imageFile.name, imageFile, {
-          access: "public",
-          addRandomSuffix: true,
-        });
-        return blob.url;
-      }),
-    );
+    try {
+      imageUrls = await Promise.all(
+        imagesParsed.data.map(async (imageFile) => {
+          const blob = await put(imageFile.name, imageFile, {
+            access: "public",
+            addRandomSuffix: true,
+          });
+          return blob.url;
+        }),
+      );
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      return {
+        message: "Failed to upload new images. The files might be too large.",
+        values,
+      };
+    }
   }
 
   try {
