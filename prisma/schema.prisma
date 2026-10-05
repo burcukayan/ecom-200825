@@ -27,6 +27,8 @@ model Product {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  stripePriceId String?
+  stripeProductId String?
 
   @@map("products")
 }
@@ -35,6 +37,7 @@ enum Currency {
   EUR
   USD
   TRY
+  GBP
 }
 
 enum Category {

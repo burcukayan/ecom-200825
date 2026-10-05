@@ -22,6 +22,7 @@ export type Product = {
   isActive: boolean;
   createdAt: Date;  
   updatedAt: Date;
+  stripePriceId?: string; 
 };
 
 export type GetStorefrontProductsFilters = {
@@ -49,6 +50,7 @@ function toProduct(record: PrismaProduct): Product {
     isActive: record.isActive,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    stripePriceId: (record as any).stripePriceId || null,
   };
 }
 

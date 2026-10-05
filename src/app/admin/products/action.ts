@@ -11,7 +11,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
-import { getAdmin } from "@/lib/auth0";
+import { stripe } from "@/lib/stripe";
+import { requireAdmin } from "@/lib/auth0";
 
 export type CreateProductFormValues = {
   name: string;
@@ -60,10 +61,8 @@ export async function createProduct(
   _prevState: CreateProductState | null,
   formData: FormData,
 ): Promise<CreateProductState | null> {
-  const admin = await getAdmin();
-  if (!admin) {
-    return { message: "Unauthorized: Only admins can create products." };
-  }
+  await requireAdmin();
+
   const values = parseFormValues(formData);
 
   const parsed = createProductDataSchema.safeParse(values);
@@ -110,9 +109,30 @@ export async function createProduct(
 
   let productId: string;
   try {
-    const result = await createProductRecord(parsed.data, imageUrls);
-    productId = result.id;
-  } catch {
+    const stripeProduct = await stripe.products.create({
+      name: parsed.data.name,
+      description: parsed.data.description,
+      images: imageUrls,
+    });
+
+    const stripePrice = await stripe.prices.create({
+      product: stripeProduct.id,
+      unit_amount: Math.round(parseFloat(values.price) * 100),
+      currency: values.currency.toLowerCase(),
+    });
+
+    const record = await prisma.product.create({
+      data: {
+        ...parsed.data,
+        imageUrls,
+        stripePriceId: stripePrice.id,
+        stripeProductId: stripeProduct.id,
+      } as any,
+    });
+
+    productId = record.id;
+  } catch (error) {
+    console.error("Stripe or DB Error:", error);
     return {
       message: "Could not create the product. Please try again.",
       values,
@@ -124,36 +144,59 @@ export async function createProduct(
   redirect(`/admin/products/new?created=${productId}`);
 }
 
-export async function deleteProductAction(productId: string) {
-  const admin = await getAdmin();
-  if (!admin) {
-    throw new Error("Unauthorized: Only admins can delete products.");
+export type DeleteProductResult = { ok: true } | { ok: false; message: string };
+
+export async function deleteProductAction(
+  productId: string,
+): Promise<DeleteProductResult> {
+  await requireAdmin();
+
+  const product = await prisma.product
+    .findUnique({ where: { id: productId } })
+    .catch(() => null);
+
+  if (!product) {
+    return { ok: false, message: "Product not found." };
   }
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-  });
 
-  if (!product) return;
-
-  if (product.imageUrls && product.imageUrls.length > 0) {
-    await del(product.imageUrls);
+  try {
+    if (product.stripeProductId) {
+      await stripe.products.update(product.stripeProductId, { active: false });
+    }
+  } catch (error) {
+    console.error("Stripe archive failed:", error);
+    return {
+      ok: false,
+      message: "Could not archive the product in Stripe. Please try again.",
+    };
   }
 
-  await prisma.product.delete({
-    where: { id: productId },
-  });
+  try {
+    await prisma.product.delete({ where: { id: productId } });
+  } catch (error) {
+    console.error("Product delete failed:", error);
+    return {
+      ok: false,
+      message: "Could not delete the product. Please try again.",
+    };
+  }
+
+  if (product.imageUrls.length > 0) {
+    await del(product.imageUrls).catch((error) =>
+      console.error("Image cleanup failed:", error),
+    );
+  }
 
   revalidatePath("/admin/products");
   revalidatePath("/");
+  return { ok: true };
 }
 
 export type UpdateProductState = CreateProductState;
 
 export async function updateProductAction(prevState: any, formData: FormData) {
-  const admin = await getAdmin();
-  if (!admin) {
-    return { message: "Unauthorized: Only admins can update products." };
-  }
+  await requireAdmin();
+
   const productId = formData.get("id") as string;
   const values = parseFormValues(formData);
 

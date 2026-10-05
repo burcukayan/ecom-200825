@@ -54,39 +54,47 @@ export default function ProfileForm({
     });
   }
 
-  {
-    state?.message && (
-      <div className="p-4 text-sm rounded-md bg-muted text-foreground font-medium border">
-        {state.message}
-      </div>
-    );
-  }
+  return (
+    <div className="space-y-6">
+      {state?.message && (
+        <div className="p-4 text-sm rounded-md bg-muted text-foreground font-medium border">
+          {state.message}
+        </div>
+      )}
 
-  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-    <Label htmlFor="name">Name</Label>
-    <Input id="name" {...form.register("name")} disabled={isPending} />
-    {form.formState.errors.name && (
-      <p className="text-sm text-red-600">
-        {form.formState.errors.name.message}
-      </p>
-    )}
-    <Label htmlFor="email">Email</Label>
-    <Input id="email" {...form.register("email")} disabled={isPending} />
-    {form.formState.errors.email && (
-      <p className="text-sm text-red-600">
-        {form.formState.errors.email.message}
-      </p>
-    )}
-    <Label htmlFor="address">Address</Label>
-    <Input id="address" {...form.register("address")} disabled={isPending} />
-    {form.formState.errors.address && (
-      <p className="text-sm text-red-600">
-        {form.formState.errors.address.message}
-      </p>
-    )}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...form.register("name")} disabled={isPending} />
+        {form.formState.errors.name && (
+          <p className="text-sm text-red-600">
+            {form.formState.errors.name.message}
+          </p>
+        )}
 
-    <Button type="submit" disabled={isPending}>
-      {isPending ? "Updating..." : "Update Profile"}
-    </Button>
-  </form>;
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" {...form.register("email")} disabled={isPending} />
+        {form.formState.errors.email && (
+          <p className="text-sm text-red-600">
+            {form.formState.errors.email.message}
+          </p>
+        )}
+
+        <Label htmlFor="address">Address</Label>
+        <Input
+          id="address"
+          {...form.register("address")}
+          disabled={isPending}
+        />
+        {form.formState.errors.address && (
+          <p className="text-sm text-red-600">
+            {form.formState.errors.address.message}
+          </p>
+        )}
+
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Updating..." : "Update Profile"}
+        </Button>
+      </form>
+    </div>
+  );
 }

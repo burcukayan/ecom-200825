@@ -1,15 +1,14 @@
-import { Auth0Client } from '@auth0/nextjs-auth0/server';
+import { Auth0Client } from "@auth0/nextjs-auth0/server";
 import { redirect } from "next/navigation";
 
 export const auth0 = new Auth0Client();
 
-
 const ROLES_CLAIM = "https://ecom-200825/roles";
 
 export enum AppRole {
-  USER = 'user',
-  ADMIN = 'admin'
-};
+  USER = "user",
+  ADMIN = "admin",
+}
 
 export const AllAppRoles = Object.values(AppRole);
 
@@ -27,19 +26,26 @@ function tryGetRolesClaimFromIdToken(token: unknown): string[] {
   if (parts.length < 2) return [];
   try {
     const payload = JSON.parse(
-      Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
+      Buffer.from(
+        parts[1].replace(/-/g, "+").replace(/_/g, "/"),
+        "base64",
+      ).toString("utf8"),
     ) as Record<string, unknown>;
     const roles = payload[ROLES_CLAIM];
-    if (Array.isArray(roles)) return roles.filter((v): v is string => typeof v === "string");
+    if (Array.isArray(roles))
+      return roles.filter((v): v is string => typeof v === "string");
     return [];
   } catch {
     return [];
   }
 }
 
-export function getRolesFromUser(user: Auth0SessionUser | null | undefined): string[] {
+export function getRolesFromUser(
+  user: Auth0SessionUser | null | undefined,
+): string[] {
   const value = user?.[ROLES_CLAIM];
-  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
+  if (Array.isArray(value))
+    return value.filter((v): v is string => typeof v === "string");
   return [];
 }
 
@@ -61,21 +67,12 @@ export async function getSessionUser(): Promise<Auth0SessionUser | null> {
     | undefined;
 
   const user = (session?.user as Auth0SessionUser | undefined) ?? null;
-  console.log('user: ', user);
-
   const userRolesClaim = user?.[ROLES_CLAIM];
-  console.log('userRolesClaim: ', userRolesClaim);
-
   const rolesFromIdToken = tryGetRolesClaimFromIdToken(tokenSet?.idToken);
-  console.log('rolesFromIdToken: ', rolesFromIdToken);
 
-  const normalizedUser =
-    user && !Array.isArray(userRolesClaim) && rolesFromIdToken.length > 0
-      ? ({ ...user, [ROLES_CLAIM]: rolesFromIdToken } as Auth0SessionUser)
-      : user;
-
-  console.log('normalizedUser: ', normalizedUser);
-  return normalizedUser;
+  return user && !Array.isArray(userRolesClaim) && rolesFromIdToken.length > 0
+    ? ({ ...user, [ROLES_CLAIM]: rolesFromIdToken } as Auth0SessionUser)
+    : user;
 }
 
 export async function requireUser(): Promise<Auth0SessionUser> {
@@ -102,7 +99,9 @@ export async function requireUserOr401(): Promise<Auth0SessionUser | Response> {
   return user;
 }
 
-export async function requireAdminOr403(): Promise<Auth0SessionUser | Response> {
+export async function requireAdminOr403(): Promise<
+  Auth0SessionUser | Response
+> {
   const userOrResponse = await requireUserOr401();
   if (userOrResponse instanceof Response) return userOrResponse;
   if (!isAdmin(userOrResponse))

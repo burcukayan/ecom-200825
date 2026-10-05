@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { getAdmin, getSessionUser } from "@/lib/auth0";
+import { CartButton } from "./cart-button";
 
 export async function Navbar() {
   const user = await getSessionUser();
@@ -36,6 +37,10 @@ export async function Navbar() {
         </Link>
 
         <nav className="flex items-center gap-2">
+          <CartButton />
+
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
           {user ? (
             <>
               {admin ? (
@@ -44,7 +49,7 @@ export async function Navbar() {
                     <Link href="/admin/products">Admin</Link>
                   </Button>
                   <Button asChild variant="ghost" size="sm">
-                    F<Link href="/admin/products/new">New Product</Link>
+                    <Link href="/admin/products/new">New Product</Link>
                   </Button>
                 </>
               ) : null}
