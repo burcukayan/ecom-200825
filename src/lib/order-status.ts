@@ -26,7 +26,9 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 });
 
 export function formatOrderDate(value: string): string {
-  return dateFormatter.format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return dateFormatter.format(date);
 }
 
 export function shortOrderId(id: string): string {
