@@ -9,6 +9,8 @@ import { ProductCategory } from "@/types/product";
 import { priceStringToCents } from "@/types/currency";
 
 const PRICE_PATTERN = /^\d+(\.\d{1,2})?$/;
+const STOCK_PATTERN = /^\d+$/;
+const MAX_STOCK = 2_147_483_647;
 
 export const productCategorySchema = z.nativeEnum(ProductCategory);
 
@@ -19,22 +21,30 @@ export const createProductFormSchema = z.object({
     .string()
     .trim()
     .min(1, "Price is required")
-    .regex(PRICE_PATTERN, "Enter a valid price (e.g. 19.99)"),
+    .regex(PRICE_PATTERN, "Enter a valid price (e.g. 19.99)")
+    .refine(
+      (value) => !PRICE_PATTERN.test(value) || priceStringToCents(value) > 0,
+      "Price must be greater than 0",
+    ),
   currency: currencySchema,
   category: productCategorySchema,
   stock: z
     .string()
     .trim()
     .min(1, "Stock is required")
-    .refine((value) => /^\d+$/.test(value), "Stock must be a whole number")
-    .refine((value) => Number(value) >= 0, "Stock cannot be negative"),
+    .refine(
+      (value) => STOCK_PATTERN.test(value),
+      "Stock must be a whole number",
+    )
+    .refine(
+      (value) => !STOCK_PATTERN.test(value) || Number(value) <= MAX_STOCK,
+      "Stock is too large",
+    ),
   isActive: z.boolean(),
 });
 
 export type CreateProductFormInput = z.infer<typeof createProductFormSchema>;
 
-// createProductFormSchema keeps price/stock as strings so we can re-show the user's input on errors.
-// createProductDataSchema runs the same validation, then converts to DB types (priceCents, numeric stock).
 export const createProductDataSchema = createProductFormSchema.transform(
   (values) => ({
     name: values.name,
@@ -49,9 +59,6 @@ export const createProductDataSchema = createProductFormSchema.transform(
 
 export type CreateProductData = z.infer<typeof createProductDataSchema>;
 
-// Image uploads come from <input type="file"> as File objects in FormData — not strings.
-// productImageFileSchema checks one file; createProductImagesSchema wraps it in an array
-// and requires at least one image before we upload to Vercel Blob in the server action.
 export const productImageFileSchema = z
   .instanceof(File)
   .refine((file) => file.size > 0, "Image file is empty")
