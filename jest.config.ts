@@ -172,6 +172,7 @@ const config: Config = {
     "/node_modules/",
     "<rootDir>/.next/",
     "<rootDir>/ecom-backend/",
+    "<rootDir>/e2e/"
   ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files

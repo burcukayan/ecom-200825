@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "ecom-backend/**",
     "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 
