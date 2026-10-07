@@ -19,16 +19,24 @@ export async function loginWithAuth0(
   await page.goto("/auth/login");
   await expect(page).toHaveURL(/auth0\.com/);
 
-  await page.locator('input[name="username"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
+  const emailInput = page.locator('input[name="username"]');
+  const passwordInput = page.locator('input[name="password"]');
+
+  await expect(async () => {
+    await emailInput.fill(email);
+    await passwordInput.fill(password);
+    await expect(emailInput).toHaveValue(email, { timeout: 1_000 });
+    await expect(passwordInput).not.toHaveValue("", { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   const acceptButton = page.getByRole("button", { name: "Accept" });
   const storeHeader = page.getByText("Ecommerce Store").first();
-  await expect(acceptButton.or(storeHeader)).toBeVisible();
+  await expect(acceptButton.or(storeHeader)).toBeVisible({ timeout: 30_000 });
   if (await acceptButton.isVisible()) {
     await acceptButton.click();
   }
 
-  await expect(storeHeader).toBeVisible();
+  await expect(storeHeader).toBeVisible({ timeout: 30_000 });
 }
