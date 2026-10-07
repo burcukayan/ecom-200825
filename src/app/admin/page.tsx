@@ -13,6 +13,7 @@ import type { OrderStatus } from "@/lib/orders";
 import { STATUS_LABEL } from "@/lib/order-status";
 import { getAdminStats, type RevenueByCurrency } from "@/lib/stats";
 import { formatPrice } from "@/types/currency";
+import { requireAdmin } from "@/lib/auth0";
 
 export const metadata = {
   title: "Dashboard",
@@ -45,6 +46,7 @@ function orderCountLabel(revenue: RevenueByCurrency[]) {
 }
 
 export default async function AdminDashboardPage() {
+  await requireAdmin();
   const stats = await getAdminStats();
 
   const awaitingShipment = stats.ordersByStatus.PAID ?? 0;

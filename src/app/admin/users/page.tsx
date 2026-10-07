@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getAdminUsers } from "@/lib/users";
+import { requireAdmin } from "@/lib/auth0";
 
 export const metadata = {
   title: "Users",
@@ -36,6 +37,7 @@ function initialsOf(name: string | null, email: string) {
 }
 
 export default async function AdminUsersPage() {
+  await requireAdmin();
   const users = await getAdminUsers();
 
   return (

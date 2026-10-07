@@ -192,6 +192,7 @@ export function EditProductForm({ product }: { product: Product }) {
                   src={url}
                   alt="Product image"
                   fill
+                  sizes="96px"
                   className="object-cover"
                 />
               </div>

@@ -16,6 +16,7 @@ import {
 import { getAdminOrders, type OrderStatus } from "@/lib/orders";
 import { formatPrice } from "@/types/currency";
 import { OrderStatusButton } from "./order-status-button";
+import { requireAdmin } from "@/lib/auth0";
 
 export const metadata = {
   title: "Orders",
@@ -47,6 +48,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 });
 
 export default async function AdminOrdersPage() {
+  await requireAdmin();
   const orders = await getAdminOrders();
 
   return (
